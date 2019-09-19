@@ -1,10 +1,11 @@
-import pyautogui
 from pygame import *
+import random as r
 
 width = 500
 height = 500
 gap = 14
 block_size = (width - 5 * gap) / 4
+game_board = []
 
 cell_colour = {
     2: (238, 228, 218),
@@ -21,7 +22,15 @@ cell_colour = {
 }
 
 
-def textColour(value):
+class Cell:
+    def __init__(self, x_coord, y_coord, value):
+        self.x_coord = x_coord
+        self.y_coord = y_coord
+        self.value = value
+        self.combined = False
+
+
+def text_colour(value):
     if value >= 8:
         return 249, 246, 242
     else:
@@ -36,22 +45,33 @@ def main():
     background = Surface(screen.get_size())
     background = background.convert()
     background.fill((187, 173, 160))
+    fill_board()
 
     while 1:
         for e in event.get():
             if e.type == QUIT:
                 return
+            if e.type == KEYDOWN:
+                if e.key == K_RIGHT:
+                    move_right()
+                if e.key == K_UP:
+                    move_up()
+                if e.key == K_DOWN:
+                    move_down()
+                if e.key == K_LEFT:
+                    move_left()
+                if e.key == K_r:
+                    fill_board()
+                if lose_game():
+                    fill_board()
 
             screen.blit(background, (0, 0))
-            drawGrid(background)
-            drawCell(0, 0, 2, background)
-            drawCell(0, 1, 4, background)
-            drawCell(2, 2, 32, background)
-            drawCell(1, 1.5, 16, background)
+            draw_grid(background)
+            draw_board(background)
             display.flip()
 
 
-def drawGrid(background):
+def draw_grid(background):
     grid = []
 
     for y in range(0, 4):
@@ -63,18 +83,96 @@ def drawGrid(background):
         AAfilledRoundedRect(background, rect, (205, 193, 179), 0.1)
 
 
-def drawCell(cell_x, cell_y, value, background):
+def draw_cell(cell_x, cell_y, value, background):
     rect = Rect(cell_x * (block_size + gap) + gap, (cell_y * (block_size + gap) + gap), block_size, block_size)
     AAfilledRoundedRect(background, rect, cell_colour.get(value), 0.1)
     number = font.Font("fonts/arialbd.ttf", 55)
-    Text_Surf, TextRect = text_objects(str(value), number, textColour(value))
-    TextRect.center = (int(rect.x + 0.5 * block_size), int(rect.y + 0.5 * block_size))
-    background.blit(Text_Surf, TextRect)
+    text_surf, text_rect = text_objects(str(value), number, text_colour(value))
+    text_rect.center = (int(rect.x + 0.5 * block_size), int(rect.y + 0.5 * block_size))
+    background.blit(text_surf, text_rect)
 
 
-def text_objects(text, font, colour):
-    textSurface = font.render(text, True, colour)
-    return textSurface, textSurface.get_rect()
+def text_objects(text, input_font, colour):
+    text_surface = input_font.render(text, True, colour)
+    return text_surface, text_surface.get_rect()
+
+
+def fill_board():
+    game_board.clear()
+    gen_cell()
+    gen_cell()
+
+    return None
+
+
+def gen_cell():
+    added = 0
+    while added < 1:
+        cell_x = r.randint(0, 3)
+        cell_y = r.randint(0, 3)
+        for cell in game_board:
+            if cell.x_coord == cell_x and cell.y_coord == cell_y:
+                continue
+        if r.random() < 0.25:
+            value = 4
+        else:
+            value = 2
+        game_board.append(Cell(cell_x, cell_y, value))
+        added += 1
+
+
+# is the board full for now -> change to can't make move
+def lose_game():
+    return len(game_board) == 16
+
+
+def draw_board(background):
+    for cell in game_board:
+        draw_cell(cell.x_coord, cell.y_coord, cell.value, background)
+
+
+def move_right():
+    for _ in range(4):
+        for x in range(2, -1, -1):
+            for y in range(0, 4):
+                current_index = get_at_coord(x, y)
+                if current_index == -1:
+                    continue
+                right_index = get_at_coord(x + 1, y)
+                if right_index == -1:
+                    game_board[current_index].x_coord += 1
+                elif game_board[current_index].value == game_board[right_index].value and (
+                        not game_board[current_index].combined and not game_board[right_index].combined):
+                    game_board[right_index].value *= 2
+                    game_board[right_index].combined = True
+                    game_board.pop(current_index)
+    for cell in game_board:
+        cell.combined = False
+
+    gen_cell()
+    return None
+
+
+def get_at_coord(x_coor, y_coor):
+    for i, cell in enumerate(game_board):
+        if x_coor == cell.x_coord and y_coor == cell.y_coord:
+            return i
+    return -1
+
+
+def move_left():
+    gen_cell()
+    print("left arrow")
+
+
+def move_up():
+    gen_cell()
+    return None
+
+
+def move_down():
+    gen_cell()
+    return None
 
 
 def AAfilledRoundedRect(surface, rect, colour, radius=0.4):
