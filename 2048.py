@@ -166,16 +166,64 @@ def get_at_coord(x_coor, y_coor):
 
 
 def move_left():
+    for _ in range(4):
+        for x in range(1, 4, 1):
+            for y in range(0, 4):
+                current_index = get_at_coord(x, y)
+                if current_index == -1:
+                    continue
+                left_index = get_at_coord(x - 1, y)
+                if left_index == -1:
+                    game_board[current_index].x_coord -= 1
+                elif game_board[current_index].value == game_board[left_index].value and (
+                        not game_board[current_index].combined and not game_board[left_index].combined):
+                    game_board[left_index].value *= 2
+                    game_board[left_index].combined = True
+                    game_board.pop(current_index)
+    for cell in game_board:
+        cell.combined = False
     gen_cell()
-    print("left arrow")
+    return None
 
 
 def move_up():
+    for _ in range(4):
+        for y in range(1, 4, 1):
+            for x in range(0, 4):
+                current_index = get_at_coord(x, y)
+                if current_index == -1:
+                    continue
+                above_index = get_at_coord(x, y - 1)
+                if above_index == -1:
+                    game_board[current_index].y_coord -= 1
+                elif game_board[current_index].value == game_board[above_index].value and (
+                        not game_board[current_index].combined and not game_board[above_index].combined):
+                    game_board[above_index].value *= 2
+                    game_board[above_index].combined = True
+                    game_board.pop(current_index)
+    for cell in game_board:
+        cell.combined = False
     gen_cell()
     return None
 
 
 def move_down():
+    for _ in range(4):
+        for y in range(2, -1, -1):
+            for x in range(0, 4):
+                current_index = get_at_coord(x, y)
+                if current_index == -1:
+                    continue
+                below_index = get_at_coord(x, y + 1)
+                if below_index == -1:
+                    game_board[current_index].y_coord += 1
+                elif game_board[current_index].value == game_board[below_index].value and (
+                        not game_board[current_index].combined and not game_board[below_index].combined):
+                    game_board[below_index].value *= 2
+                    game_board[below_index].combined = True
+                    game_board.pop(current_index)
+    for cell in game_board:
+        cell.combined = False
     gen_cell()
     return None
 
