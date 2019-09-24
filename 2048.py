@@ -110,9 +110,14 @@ def gen_cell():
     while added < 1:
         cell_x = r.randint(0, 3)
         cell_y = r.randint(0, 3)
+
+        already_exists = False
         for cell in game_board:
             if cell.x_coord == cell_x and cell.y_coord == cell_y:
-                continue
+                already_exists = True
+        if already_exists:
+            continue
+
         if r.random() < 0.25:
             value = 4
         else:
