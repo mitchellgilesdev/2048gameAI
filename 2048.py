@@ -1,5 +1,7 @@
 from pygame import *
 import random as r
+import copy
+import math as m
 
 width = 500
 height = 500
@@ -10,6 +12,12 @@ DIR_UP = 0
 DIR_RIGHT = 1
 DIR_DOWN = 2
 DIR_LEFT = 3
+start_time = 0
+animation_status = 0
+is_animating = False
+animation_ghost = []
+animation_time = 100
+max_scale = 0.15
 
 cell_colour = {
     2: (238, 228, 218),
@@ -32,6 +40,8 @@ class Cell:
         self.y_coord = y_coord
         self.value = value
         self.combined = False
+        self.x_old = None
+        self.x_old = None
 
 
 def text_colour(value):
@@ -42,21 +52,24 @@ def text_colour(value):
 
 
 def main():
+    global is_animating
+    global start_time
+    global animation_status
+    global animation_ghost
     init()
     screen = display.set_mode((height, width))
     display.set_caption('2048 Game')
-
     background = Surface(screen.get_size())
     background = background.convert()
     background.fill((187, 173, 160))
     lost = False
     fill_board()
-
+    clock = time.Clock()
     while 1:
         for e in event.get():
             if e.type == QUIT:
                 return
-            if e.type == KEYDOWN:
+            if e.type == KEYDOWN and not is_animating:
                 if e.key == K_RIGHT:
                     move(DIR_RIGHT)
                 if e.key == K_UP:
@@ -70,67 +83,29 @@ def main():
                     fill_board()
                 if e.key == K_l:
                     lost = True
-                if lose_game():
-                    lost = True
+            if lose_game():
+                lost = True
 
-            screen.blit(background, (0, 0))
-            background.fill((187, 173, 160))
-            draw_grid(background)
-            draw_board(background)
-            if lost:
-                draw_lose(background)
-            display.flip()
+        if is_animating:
+            animation_status = (time.get_ticks() - start_time) / animation_time
+        if animation_status >= 1:
+            animation_status = 0
+            is_animating = False
+            animation_ghost = []
+            for cell in game_board:
+                cell.combined = False
+            gen_cell()
 
-
-def draw_lose(background):
-    rect = Rect(gap, gap, width - 2 * gap, height - 2 * gap)
-    AAfilledRoundedRect(background, rect, (140, 140, 140, 140), 0.1 * block_size / (width - 2 * gap))
-    fonta = font.Font("fonts/arialbd.ttf", 65)
-    text_surf, text_rect = text_objects('You Lose', fonta, (64, 64, 64))
-    text_rect.center = (width / 2, (height / 2) - 30)
-    background.blit(text_surf, text_rect)
-    score = 0
-    for cell in game_board:
-        score += cell.value
-    fonta = font.Font("fonts/arialbd.ttf", 55)
-    text_surf, text_rect = text_objects('Score: {}'.format(score), fonta, (64, 64, 64))
-    text_rect.center = (width / 2, (height / 2) + 30)
-    background.blit(text_surf, text_rect)
+        background.fill((187, 173, 160))
+        draw_grid(background)
+        draw_board(background)
+        if lost:
+            draw_lose(background)
+        screen.blit(background, (0, 0))
+        display.flip()
 
 
-def draw_grid(background):
-    grid = []
-
-    for y in range(0, 4):
-        for x in range(0, 4):
-            rect = Rect(x * (block_size + gap) + gap, (y * (block_size + gap) + gap), block_size, block_size)
-            grid.append(rect)
-
-    for rect in grid:
-        AAfilledRoundedRect(background, rect, (205, 193, 179), 0.1)
-
-
-def draw_cell(cell_x, cell_y, value, background):
-    rect = Rect(cell_x * (block_size + gap) + gap, (cell_y * (block_size + gap) + gap), block_size, block_size)
-    AAfilledRoundedRect(background, rect, cell_colour.get(value), 0.1)
-    number = font.Font("fonts/arialbd.ttf", 55)
-    text_surf, text_rect = text_objects(str(value), number, text_colour(value))
-    text_rect.center = (int(rect.x + 0.5 * block_size), int(rect.y + 0.5 * block_size))
-    background.blit(text_surf, text_rect)
-
-
-def text_objects(text, input_font, colour):
-    text_surface = input_font.render(text, True, colour)
-    return text_surface, text_surface.get_rect()
-
-
-def fill_board():
-    game_board.clear()
-    gen_cell()
-    gen_cell()
-
-    return None
-
+###############################################
 
 def gen_cell():
     added = 0
@@ -155,27 +130,112 @@ def gen_cell():
         added += 1
 
 
-# is the board full for now -> change to can't make move
-def lose_game():
-    # check copy of the board if it is full
-    if len(game_board) == 16:
-        current_state = game_board.copy()
-        move(DIR_UP, False)
-        move(DIR_RIGHT, False)
-        move(DIR_LEFT, False)
-        move(DIR_DOWN, False)
-        if len(game_board) == 16:
-            return True
+def draw_cell(cell_x, cell_y, value, background, scale=1.0):
+    scale_change = ((scale - 1) * block_size) / 2
+    rect = Rect(cell_x * (block_size + gap) + gap - scale_change, (cell_y * (block_size + gap) + gap) - scale_change,
+                block_size + 2 * scale_change, block_size + 2 * scale_change)
+    AAfilledRoundedRect(background, rect, cell_colour.get(value), 0.1)
+    number = font.Font("fonts/arialbd.ttf", 55)
+    text_surf, text_rect = text_objects(str(value), number, text_colour(value))
+    text_rect.center = (int(rect.x + 0.5 * block_size + scale_change), int(rect.y + 0.5 * block_size + scale_change))
+    background.blit(text_surf, text_rect)
 
-    return False
+
+def draw_grid(background):
+    grid = []
+
+    for y in range(0, 4):
+        for x in range(0, 4):
+            rect = Rect(x * (block_size + gap) + gap, (y * (block_size + gap) + gap), block_size, block_size)
+            grid.append(rect)
+
+    for rect in grid:
+        AAfilledRoundedRect(background, rect, (205, 193, 179), 0.1)
 
 
 def draw_board(background):
+    if is_animating:
+        scale = m.sin(animation_status * m.pi) * max_scale + 1
+        for cell in animation_ghost:
+            x_position = cell.x_coord * animation_status + cell.x_old * (1 - animation_status)
+            y_position = cell.y_coord * animation_status + cell.y_old * (1 - animation_status)
+            draw_cell(x_position, y_position, cell.value, background)
+        for cell in game_board:
+            x_position = cell.x_coord * animation_status + cell.x_old * (1 - animation_status)
+            y_position = cell.y_coord * animation_status + cell.y_old * (1 - animation_status)
+            if cell.combined:
+                draw_cell(x_position, y_position, cell.value, background, scale)
+            else:
+                draw_cell(x_position, y_position, cell.value, background)
+    else:
+        for cell in game_board:
+            draw_cell(cell.x_coord, cell.y_coord, cell.value, background)
+
+
+def draw_lose(background):
+    rect = Rect(gap, gap, width - 2 * gap, height - 2 * gap)
+    AAfilledRoundedRect(background, rect, (140, 140, 140, 140), 0.1 * block_size / (width - 2 * gap))
+    fonta = font.Font("fonts/arialbd.ttf", 65)
+    text_surf, text_rect = text_objects('You Lose', fonta, (64, 64, 64))
+    text_rect.center = (width / 2, (height / 2) - 30)
+    background.blit(text_surf, text_rect)
+    score = 0
     for cell in game_board:
-        draw_cell(cell.x_coord, cell.y_coord, cell.value, background)
+        score += cell.value
+    fonta = font.Font("fonts/arialbd.ttf", 55)
+    text_surf, text_rect = text_objects('Score: {}'.format(score), fonta, (64, 64, 64))
+    text_rect.center = (width / 2, (height / 2) + 30)
+    background.blit(text_surf, text_rect)
 
 
-def move(direction, gen=True):
+def lose_game():
+    # check copy of the board if it is full
+    global animation_ghost
+    global animation_status
+    global is_animating
+    global game_board
+    if len(game_board) == 16:
+        current_state = copy.deepcopy(game_board)
+        move(DIR_UP, True)
+        move(DIR_RIGHT, True)
+        move(DIR_LEFT, True)
+        move(DIR_DOWN, True)
+        animation_status = 0
+        is_animating = False
+        animation_ghost = []
+        for cell in game_board:
+            cell.combined = False
+        if len(game_board) == 16:
+            game_board = current_state
+            return True
+        else:
+            game_board = current_state
+    return False
+
+
+def text_objects(text, input_font, colour):
+    text_surface = input_font.render(text, True, colour)
+    return text_surface, text_surface.get_rect()
+
+
+def fill_board():
+    game_board.clear()
+    gen_cell()
+    gen_cell()
+
+    return None
+
+
+# is the board full for now -> change to can't make move
+
+
+def move(direction, silent=False):
+    global start_time
+    global is_animating
+    global animation_ghost
+    if not silent:
+        is_animating = True
+        start_time = time.get_ticks()
     if direction == DIR_UP:
         coords = [(x, y) for y in range(1, 4, 1) for x in range(0, 4)]
         x_offset = 0
@@ -195,12 +255,17 @@ def move(direction, gen=True):
     else:
         return None
 
+    for cell in game_board:
+        cell.x_old = cell.x_coord
+        cell.y_old = cell.y_coord
+
     for _ in range(4):
         for x, y in coords:
             current_index = get_at_coord(x, y)
             if current_index == -1:
                 continue
             next_index = get_at_coord(x + x_offset, y + y_offset)
+
             if next_index == -1:
                 game_board[current_index].x_coord += x_offset
                 game_board[current_index].y_coord += y_offset
@@ -208,13 +273,10 @@ def move(direction, gen=True):
                     not game_board[current_index].combined and not game_board[next_index].combined):
                 game_board[next_index].value *= 2
                 game_board[next_index].combined = True
+                game_board[current_index].x_coord += x_offset
+                game_board[current_index].y_coord += y_offset
+                animation_ghost.append(game_board[current_index])
                 game_board.pop(current_index)
-
-    for cell in game_board:
-        cell.combined = False
-
-    if gen:
-        gen_cell()
 
     return None
 
